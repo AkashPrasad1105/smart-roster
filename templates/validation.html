@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Conflict Validation | Smart Roster</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('home') }}" class="brand-logo">
+                <span>⚡ SmartRoster</span>
+                <span class="brand-badge">Ops Suite</span>
+            </a>
+            <div class="nav-links">
+                <a href="{{ url_for('home') }}">Dashboard</a>
+                <a href="{{ url_for('roster.monthly_roster', month=month) }}">Roster</a>
+                <a href="{{ url_for('coverage.coverage_view', month=month) }}">Coverage</a>
+                <a href="{{ url_for('validation.validation_view', month=month) }}" class="active">Validation</a>
+                <a href="{{ url_for('simulator.change_simulator', month=month) }}">Change Simulator</a>
+                <a href="{{ url_for('employees') }}">Team</a>
+                <a href="{{ url_for('brands') }}">Brands</a>
+                <a href="{{ url_for('assignments.manage_assignments') }}">Allocations</a>
+                <a href="{{ url_for('availability.manage_availability') }}">Leave & Holidays</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="header">
+        <div class="container">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <p class="eyebrow">CONSTRAINT ENGINE & AUDIT</p>
+                    <h1>Roster Conflict Validation: {{ month }}</h1>
+                    <p>Live checking of client SLAs, employee capacity, approved leaves, and weekly-off rules.</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('export_validation_csv', month=month) }}" class="btn btn-secondary">
+                        📥 Export Issues CSV
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- MONTH SELECTOR -->
+        <div class="card">
+            <form method="get" class="form-inline" style="margin: 0;">
+                <label>
+                    Month to Validate
+                    <input type="month" name="month" value="{{ month }}" required>
+                </label>
+                <button type="submit" class="btn btn-secondary">Validate Month</button>
+            </form>
+        </div>
+
+        {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+        {% elif issues is none %}
+            <div class="card" style="text-align: center; padding: 30px;">
+                <h2>No saved roster exists for {{ month }}</h2>
+                <p style="color: var(--text-muted);">Please generate a roster from the Roster page before running validation.</p>
+                <a href="{{ url_for('roster.monthly_roster', month=month) }}" class="btn btn-primary" style="margin-top: 10px;">
+                    Go to Roster Generator
+                </a>
+            </div>
+        {% else %}
+            <!-- VALIDATION METRICS -->
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <span class="metric-label">Critical Hard Violations</span>
+                    <span class="metric-value" style="color: {% if critical_count > 0 %}#dc2626{% else %}#166534{% endif %};">
+                        {{ critical_count }}
+                    </span>
+                    <span class="metric-hint">Client downtime, capacity overload, leave clashes</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Policy Warnings</span>
+                    <span class="metric-value" style="color: {% if warning_count > 0 %}#d97706{% else %}#475569{% endif %};">
+                        {{ warning_count }}
+                    </span>
+                    <span class="metric-hint">Weekly offs shifted for mandatory client SLA</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Operational Notices</span>
+                    <span class="metric-value" style="color: #0369a1;">
+                        {{ info_count }}
+                    </span>
+                    <span class="metric-hint">Active backup coverage & temporary allocations</span>
+                </div>
+            </div>
+
+            <!-- SEVERITY FILTERS -->
+            <div class="view-tabs" style="margin-top: 20px;">
+                <a href="{{ url_for('validation.validation_view', month=month) }}"
+                   class="view-tab {% if not filter_severity %}active{% endif %}">
+                    All Issues ({{ all_issues | length }})
+                </a>
+                <a href="{{ url_for('validation.validation_view', month=month, severity='CRITICAL') }}"
+                   class="view-tab {% if filter_severity == 'CRITICAL' %}active{% endif %}" style="color: #dc2626;">
+                    🚨 Critical Only ({{ critical_count }})
+                </a>
+                <a href="{{ url_for('validation.validation_view', month=month, severity='WARNING') }}"
+                   class="view-tab {% if filter_severity == 'WARNING' %}active{% endif %}" style="color: #d97706;">
+                    ⚠️ Warnings Only ({{ warning_count }})
+                </a>
+                <a href="{{ url_for('validation.validation_view', month=month, severity='INFO') }}"
+                   class="view-tab {% if filter_severity == 'INFO' %}active{% endif %}" style="color: #0369a1;">
+                    ℹ️ Notices ({{ info_count }})
+                </a>
+            </div>
+
+            <!-- ISSUES TABLE -->
+            <div class="card">
+                {% if issues | length > 0 %}
+                    <table class="employee-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Severity</th>
+                                <th>Conflict Type</th>
+                                <th>Details</th>
+                                <th>Actionable Recommendation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for issue in issues %}
+                            <tr>
+                                <td><strong>{{ issue.date }}</strong></td>
+                                <td>
+                                    {% if issue.severity == 'CRITICAL' %}
+                                        <span class="badge badge-critical">CRITICAL</span>
+                                    {% elif issue.severity == 'WARNING' %}
+                                        <span class="badge badge-warning">WARNING</span>
+                                    {% else %}
+                                        <span class="badge badge-info">INFO</span>
+                                    {% endif %}
+                                </td>
+                                <td><strong>{{ issue.type }}</strong></td>
+                                <td style="font-size: 13px;">{{ issue.detail }}</td>
+                                <td style="font-size: 12px; color: var(--text-muted);">
+                                    {{ issue.recommendation or 'Review schedule manually.' }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <div style="text-align: center; padding: 30px; color: #166534;">
+                        <h3>✓ No conflicts found for this filter</h3>
+                        <p>The saved roster satisfies all tested constraints.</p>
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+    </main>
+</body>
+</html>

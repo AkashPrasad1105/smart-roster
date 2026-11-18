@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team & Pods | Smart Roster</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('home') }}" class="brand-logo">
+                <span>⚡ SmartRoster</span>
+                <span class="brand-badge">Ops Suite</span>
+            </a>
+            <div class="nav-links">
+                <a href="{{ url_for('home') }}">Dashboard</a>
+                <a href="{{ url_for('roster.monthly_roster') }}">Roster</a>
+                <a href="{{ url_for('coverage.coverage_view') }}">Coverage</a>
+                <a href="{{ url_for('validation.validation_view') }}">Validation</a>
+                <a href="{{ url_for('simulator.change_simulator') }}">Change Simulator</a>
+                <a href="{{ url_for('employees') }}" class="active">Team</a>
+                <a href="{{ url_for('brands') }}">Brands</a>
+                <a href="{{ url_for('assignments.manage_assignments') }}">Allocations</a>
+                <a href="{{ url_for('availability.manage_availability') }}">Leave & Holidays</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="header">
+        <div class="container">
+            <p class="eyebrow">ORGANIZATIONAL DIRECTORY & GOVERNANCE</p>
+            <h1>Team & Operational Pods</h1>
+            <p>{{ employees | length }} team members distributed across operational pods.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        {% if success %}
+            <div class="alert alert-success">{{ success }}</div>
+        {% endif %}
+        {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+
+        <!-- DYNAMIC ADD EMPLOYEE (Section 3.A & 6) -->
+        <div class="card">
+            <h2>➕ Add New Team Member</h2>
+            <p style="font-size: 13px; color: var(--text-muted);">
+                Add employees dynamically to the operational roster without modifying source code.
+            </p>
+            <form method="post" class="management-form">
+                <label>
+                    Full Name
+                    <input type="text" name="name" placeholder="e.g. Rohini Sen" required>
+                </label>
+                <label>
+                    Operational Pod
+                    <select name="pod_id" required>
+                        {% for pod in pods %}
+                            <option value="{{ pod.id }}">{{ pod.name }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>
+                    Weekly Off Day
+                    <select name="weekly_off" required>
+                        {% for wname in weekday_names %}
+                            <option value="{{ loop.index0 }}" {% if loop.index0 == 6 %}selected{% endif %}>{{ wname }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>
+                    Daily Capacity (Hours)
+                    <input type="number" name="capacity" min="1" max="24" value="8" required>
+                </label>
+                <label style="flex-direction: row; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <input type="checkbox" name="is_pod_lead" value="1">
+                    <span>Pod Lead Role</span>
+                </label>
+                <button type="submit" class="btn btn-primary">Add Employee</button>
+            </form>
+        </div>
+
+        <!-- EMPLOYEE DIRECTORY -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>Active Team Directory</h2>
+                <a href="{{ url_for('employee_settings.manage_employee_settings') }}" class="btn btn-secondary">
+                    ⚙️ Configure Shifts & Capacities
+                </a>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table class="employee-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Pod</th>
+                            <th>Role</th>
+                            <th>Weekly Off</th>
+                            <th>Daily Capacity</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for employee in employees %}
+                        <tr>
+                            <td>#{{ employee.id }}</td>
+                            <td><strong>{{ employee.name }}</strong></td>
+                            <td>{{ employee.pod_name }}</td>
+                            <td>
+                                {% if employee.is_pod_lead %}
+                                    <span class="badge badge-info">Pod Lead</span>
+                                {% else %}
+                                    <span class="badge badge-draft">Team Member</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ weekday_names[employee.weekly_off] }}</td>
+                            <td>{{ employee.daily_capacity_hours }} hours/day</td>
+                            <td>
+                                <a href="{{ url_for('roster.monthly_roster', view='employee', employee=employee.id) }}" class="btn btn-secondary btn-sm">
+                                    View Schedule
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brand & Process Coverage | Smart Roster</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('home') }}" class="brand-logo">
+                <span>⚡ SmartRoster</span>
+                <span class="brand-badge">Ops Suite</span>
+            </a>
+            <div class="nav-links">
+                <a href="{{ url_for('home') }}">Dashboard</a>
+                <a href="{{ url_for('roster.monthly_roster', month=month) }}">Roster</a>
+                <a href="{{ url_for('coverage.coverage_view', month=month) }}" class="active">Coverage</a>
+                <a href="{{ url_for('validation.validation_view', month=month) }}">Validation</a>
+                <a href="{{ url_for('simulator.change_simulator', month=month) }}">Change Simulator</a>
+                <a href="{{ url_for('employees') }}">Team</a>
+                <a href="{{ url_for('brands') }}">Brands</a>
+                <a href="{{ url_for('assignments.manage_assignments') }}">Allocations</a>
+                <a href="{{ url_for('availability.manage_availability') }}">Leave & Holidays</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="header">
+        <div class="container">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <p class="eyebrow">CLIENT SLA AUDIT</p>
+                    <h1>Brand & Process Daily Coverage</h1>
+                    <p>Track daily staffing compliance and uncover operational bottlenecks.</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('export_coverage_csv', month=month) }}" class="btn btn-secondary">
+                        📥 Export Coverage CSV
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- FILTER FORM -->
+        <div class="card">
+            <form method="get" class="form-inline" style="margin: 0;">
+                <label>
+                    Month
+                    <input type="month" name="month" value="{{ month }}" required>
+                </label>
+                <label>
+                    Brand
+                    <select name="brand">
+                        <option value="">All Brands</option>
+                        {% for brand in brands %}
+                            <option value="{{ brand }}" {% if selected_brand == brand %}selected{% endif %}>{{ brand }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>
+                    Process
+                    <select name="process">
+                        <option value="">All Processes</option>
+                        {% for process in processes %}
+                            <option value="{{ process }}" {% if selected_process == process %}selected{% endif %}>{{ process }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <button type="submit" class="btn btn-secondary">Apply Filters</button>
+                <a href="{{ url_for('coverage.coverage_view', month=month) }}" class="btn btn-secondary">Clear</a>
+            </form>
+        </div>
+
+        {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+
+        {% if roster %}
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <h2>Daily Staffing Log for {{ month }}</h2>
+                    <div>
+                        <span class="badge {% if gap_count > 0 %}badge-critical{% else %}badge-published{% endif %}">
+                            {{ gap_count }} Understaffed Dates
+                        </span>
+                    </div>
+                </div>
+
+                <div class="roster-scroll" style="margin-top: 15px;">
+                    <table class="employee-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Brand</th>
+                                <th>Process</th>
+                                <th>Assigned / Required</th>
+                                <th>Scheduled Staff</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in rows %}
+                            <tr>
+                                <td><strong>{{ row.date }}</strong></td>
+                                <td>{{ row.brand }}</td>
+                                <td>{{ row.process }}</td>
+                                <td>
+                                    {% if row.status == 'Closed' %}
+                                        <span style="color: var(--text-muted);">—</span>
+                                    {% else %}
+                                        <strong>{{ row.assigned }}</strong> / {{ row.required }}
+                                    {% endif %}
+                                </td>
+                                <td>{{ row.employees or "—" }}</td>
+                                <td>
+                                    <span class="coverage-{{ row.status }}">
+                                        {{ row.status }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">
+                                    No matching brand/process requirements found for this filter.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% else %}
+            <div class="card" style="text-align: center; padding: 30px;">
+                <h2>No saved roster to display for {{ month }}</h2>
+                <p style="color: var(--text-muted);">Please generate a roster first.</p>
+                <a href="{{ url_for('roster.monthly_roster', month=month) }}" class="btn btn-primary" style="margin-top: 10px;">
+                    Generate Monthly Roster
+                </a>
+            </div>
+        {% endif %}
+    </main>
+</body>
+</html>

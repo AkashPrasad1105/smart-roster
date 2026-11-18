@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change Simulator | Smart Roster</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('home') }}" class="brand-logo">
+                <span>⚡ SmartRoster</span>
+                <span class="brand-badge">Ops Suite</span>
+            </a>
+            <div class="nav-links">
+                <a href="{{ url_for('home') }}">Dashboard</a>
+                <a href="{{ url_for('roster.monthly_roster', month=month) }}">Roster</a>
+                <a href="{{ url_for('coverage.coverage_view', month=month) }}">Coverage</a>
+                <a href="{{ url_for('validation.validation_view', month=month) }}">Validation</a>
+                <a href="{{ url_for('simulator.change_simulator', month=month) }}" class="active">Change Simulator</a>
+                <a href="{{ url_for('employees') }}">Team</a>
+                <a href="{{ url_for('brands') }}">Brands</a>
+                <a href="{{ url_for('assignments.manage_assignments') }}">Allocations</a>
+                <a href="{{ url_for('availability.manage_availability') }}">Leave & Holidays</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="header">
+        <div class="container">
+            <p class="eyebrow">DYNAMIC ADAPTATION ENGINE (SECTION 3.F)</p>
+            <h1>Roster Change & Impact Simulator</h1>
+            <p>Simulate unexpected staff absences, evaluate client coverage impact, and test auto-resolution.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- SCENARIO SELECTION TABS -->
+        <div class="view-tabs">
+            <a href="{{ url_for('simulator.change_simulator', month=month, scenario='single_resource') }}"
+               class="view-tab {% if scenario == 'single_resource' %}active{% endif %}">
+                🧪 Scenario 1: Single-Resource Employee Unavailability
+            </a>
+            <a href="{{ url_for('simulator.change_simulator', month=month, scenario='multi_resource') }}"
+               class="view-tab {% if scenario == 'multi_resource' %}active{% endif %}">
+                🧪 Scenario 2: Multi-Resource Brand Staff Reduction
+            </a>
+        </div>
+
+        {% if scenario == 'single_resource' %}
+            <!-- SCENARIO 1 FORM -->
+            <div class="card">
+                <h2>Scenario 1: Single-Resource Brand Unavailability</h2>
+                <p>
+                    <strong>Prompt Requirement:</strong> <em>"If an employee managing all processes for a brand becomes unavailable on a required working day, the system should flag the resulting coverage gap and help the operations manager identify a possible resolution."</em>
+                </p>
+
+                <form method="post" class="management-form" style="margin-top: 20px;">
+                    <input type="hidden" name="action" value="simulate_single_resource">
+                    <label>
+                        Target Employee (Single-Resource Brands: ID 1–20)
+                        <select name="employee_id" required>
+                            {% for emp in employees[:20] %}
+                                <option value="{{ emp.id }}">
+                                    {{ emp.name }} (Handles Brand #{{ emp.id }}) · {{ emp.pod_name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+
+                    <label>
+                        Simulation Date
+                        <input type="date" name="work_date" value="{{ month }}-15" required>
+                    </label>
+
+                    <button type="submit" class="btn btn-primary">
+                        ⚡ Simulate Unavailability & Evaluate Impact
+                    </button>
+                </form>
+            </div>
+
+            <!-- SCENARIO 1 RESULTS -->
+            {% if simulation_result and simulation_result.type == 'single_resource' %}
+                {% if simulation_result.error %}
+                    <div class="alert alert-danger">{{ simulation_result.error }}</div>
+                {% else %}
+                    <div class="card" style="border-left: 4px solid #dc2626;">
+                        <h2>🚨 Impact Evaluation Result</h2>
+                        <p>
+                            Simulating sudden emergency leave for <strong>{{ simulation_result.employee.name }}</strong> on <strong>{{ simulation_result.date }}</strong>:
+                        </p>
+
+                        <div class="metrics-grid">
+                            <div class="metric-card">
+                                <span class="metric-label">Scheduled Load</span>
+                                <span class="metric-value">{{ simulation_result.hours_before }}h</span>
+                                <span class="metric-hint">{{ simulation_result.jobs_count }} active responsibilities</span>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Coverage Impact</span>
+                                <span class="metric-value" style="color: #dc2626;">GAP</span>
+                                <span class="metric-hint">Brand left without dedicated coverage</span>
+                            </div>
+                        </div>
+
+                        <h3 style="margin-top: 25px;">Affected Brand Responsibilities & Smart Resolutions:</h3>
+
+                        {% for req in simulation_result.affected_requirements %}
+                            <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 14px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <h4 style="margin: 0; color: #1e293b;">{{ req.brand }} — {{ req.process }}</h4>
+                                        <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--text-muted);">
+                                            Required: {{ req.hours }} hours | Current Assigned Staff: 0 (Direct shortfall)
+                                        </p>
+                                    </div>
+                                    <span class="badge badge-critical">Critical Gap</span>
+                                </div>
+
+                                <div style="margin-top: 14px;">
+                                    <strong>Recommended Pod Backups:</strong>
+                                    <div style="display: grid; gap: 8px; margin-top: 8px;">
+                                        {% for rec in req.recommendations %}
+                                            <div class="rec-card" style="margin-bottom: 0;">
+                                                <div>
+                                                    <strong>{{ rec.name }}</strong>
+                                                    <span class="badge badge-published">{{ rec.pod_name }}</span>
+                                                    <span class="badge badge-info">Match Score: {{ rec.score }}%</span>
+                                                    <div class="rec-reasons">
+                                                        {% for r in rec.reasons %}
+                                                            <span class="rec-tag">{{ r }}</span>
+                                                        {% endfor %}
+                                                    </div>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-primary"
+                                                        onclick="applyQuickBackup('{{ req.requirement_id }}', '{{ simulation_result.date }}', '{{ rec.employee_id }}')">
+                                                    Assign Backup
+                                                </button>
+                                            </div>
+                                        {% else %}
+                                            <p style="color: #991b1b; font-size: 13px;">No available same-pod peer with available capacity.</p>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% else %}
+                            <p style="color: #166534;">
+                                Employee was not scheduled to work on this date (e.g. was already on Weekly Off or Leave). No new brand gaps introduced.
+                            </p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endif %}
+
+        {% else %}
+            <!-- SCENARIO 2 FORM -->
+            <div class="card">
+                <h2>Scenario 2: Multi-Resource Brand Staff Reduction</h2>
+                <p>
+                    <strong>Prompt Requirement:</strong> <em>"Similarly, if one of three employees assigned to a brand is unavailable, the system should evaluate whether the remaining employees can maintain the required coverage."</em>
+                </p>
+
+                <form method="post" class="management-form" style="margin-top: 20px;">
+                    <input type="hidden" name="action" value="simulate_multi_resource">
+                    <label>
+                        Multi-Resource Brand
+                        <select name="brand_id" required>
+                            <option value="25" selected>Brand #25: Green Pantry (3 Employees: IDs 29, 30, 32)</option>
+                            <option value="24">Brand #24: Craft Avenue (3 Employees: IDs 27, 28, 31)</option>
+                            <option value="23">Brand #23: Happy Paws (2 Employees: IDs 25, 26)</option>
+                        </select>
+                    </label>
+
+                    <label>
+                        Unavailable Employee
+                        <select name="unavailable_emp_id" required>
+                            <option value="29" selected>Siddharth Kumar (Assigned to CS)</option>
+                            <option value="30">Anika Dutta (Assigned to ACC)</option>
+                            <option value="32">Zoya Khan (Assigned to NDR & CS)</option>
+                        </select>
+                    </label>
+
+                    <label>
+                        Simulation Date
+                        <input type="date" name="work_date" value="{{ month }}-15" required>
+                    </label>
+
+                    <button type="submit" class="btn btn-primary">
+                        ⚡ Evaluate Remaining Team Capacity
+                    </button>
+                </form>
+            </div>
+
+            <!-- SCENARIO 2 RESULTS -->
+            {% if simulation_result and simulation_result.type == 'multi_resource' %}
+                {% if simulation_result.error %}
+                    <div class="alert alert-danger">{{ simulation_result.error }}</div>
+                {% else %}
+                    <div class="card" style="border-left: 4px solid {% if simulation_result.can_cover %}#166534{% else %}#dc2626{% endif %};">
+                        <h2>Team Capacity & Coverage Evaluation: {{ simulation_result.brand.name }}</h2>
+                        <p>
+                            Simulating absence of <strong>{{ simulation_result.unavailable_emp.name }}</strong> on <strong>{{ simulation_result.date }}</strong>:
+                        </p>
+
+                        <div class="metrics-grid">
+                            <div class="metric-card">
+                                <span class="metric-label">Remaining Staff</span>
+                                <span class="metric-value">{{ simulation_result.remaining_emps | length }}</span>
+                                <span class="metric-hint">
+                                    {{ simulation_result.remaining_emps | map(attribute='name') | join(', ') }}
+                                </span>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Remaining Total Capacity</span>
+                                <span class="metric-value">{{ simulation_result.remaining_capacity }}h</span>
+                                <span class="metric-hint">Combined working hours</span>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Required Brand Hours</span>
+                                <span class="metric-value">{{ simulation_result.total_required_hours }}h</span>
+                                <span class="metric-hint">All processes across brand</span>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Coverage Feasibility</span>
+                                <span class="metric-value" style="color: {% if simulation_result.can_cover %}#166534{% else %}#dc2626{% endif %};">
+                                    {% if simulation_result.can_cover %}FEASIBLE{% else %}DEFICIT{% endif %}
+                                </span>
+                                <span class="metric-hint">
+                                    {% if simulation_result.can_cover %}Remaining team can absorb workload{% else %}Outside remaining capacity{% endif %}
+                                </span>
+                            </div>
+                        </div>
+
+                        <h3 style="margin-top: 25px;">Process-by-Process Verification:</h3>
+                        <table class="employee-table">
+                            <thead>
+                                <tr>
+                                    <th>Process</th>
+                                    <th>Required Staff</th>
+                                    <th>Eligible Remaining Employees</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in simulation_result.process_breakdown %}
+                                <tr>
+                                    <td><strong>{{ p.process_name }}</strong></td>
+                                    <td>{{ p.required_staff }}</td>
+                                    <td>{{ p.eligible_remaining | join(', ') or 'None' }}</td>
+                                    <td>
+                                        <span class="badge {% if p.status == 'Covered' %}badge-published{% else %}badge-critical{% endif %}">
+                                            {{ p.status }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
+            {% endif %}
+        {% endif %}
+    </main>
+
+    <script>
+        function applyQuickBackup(reqId, workDate, empId) {
+            const month = '{{ month }}';
+            fetch('/api/apply-backup', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    month: month,
+                    work_date: workDate,
+                    requirement_id: reqId,
+                    employee_id: empId
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Backup assigned successfully! Coverage restored.');
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

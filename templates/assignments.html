@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resource Allocations | Smart Roster</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('home') }}" class="brand-logo">
+                <span>⚡ SmartRoster</span>
+                <span class="brand-badge">Ops Suite</span>
+            </a>
+            <div class="nav-links">
+                <a href="{{ url_for('home') }}">Dashboard</a>
+                <a href="{{ url_for('roster.monthly_roster') }}">Roster</a>
+                <a href="{{ url_for('coverage.coverage_view') }}">Coverage</a>
+                <a href="{{ url_for('validation.validation_view') }}">Validation</a>
+                <a href="{{ url_for('simulator.change_simulator') }}">Change Simulator</a>
+                <a href="{{ url_for('employees') }}">Team</a>
+                <a href="{{ url_for('brands') }}">Brands</a>
+                <a href="{{ url_for('assignments.manage_assignments') }}" class="active">Allocations</a>
+                <a href="{{ url_for('availability.manage_availability') }}">Leave & Holidays</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="header">
+        <div class="container">
+            <p class="eyebrow">RESOURCE ALLOCATION MATRIX</p>
+            <h1>Employee Brand Assignments</h1>
+            <p>Define which employees are qualified and authorized to operate each brand/process.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+
+        <div class="card">
+            <h2>Add an Allocation / Cross-Training</h2>
+            <p style="font-size: 13px; color: var(--text-muted);">
+                Allocated employees become eligible candidates during roster generation. Actual daily scheduling respects capacity and leaves.
+            </p>
+
+            <form method="post" class="management-form">
+                <input type="hidden" name="action" value="add">
+
+                <label>
+                    Team Member
+                    <select name="employee_id" required>
+                        {% for employee in employees %}
+                        <option value="{{ employee.id }}">
+                            {{ employee.name }} ({{ employee.pod_name }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </label>
+
+                <label>
+                    Brand and Process
+                    <select name="requirement_id" required>
+                        {% for item in requirements %}
+                        <option value="{{ item.id }}">
+                            {{ item.brand_name }} — {{ item.process_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </label>
+
+                <button type="submit" class="btn btn-primary">Add Allocation</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>Current Eligibility Allocations ({{ allocations | length }})</h2>
+            <div style="overflow-x: auto;">
+                <table class="employee-table">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Brand</th>
+                            <th>Process</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for allocation in allocations %}
+                        <tr>
+                            <td><strong>{{ allocation.employee_name }}</strong></td>
+                            <td>{{ allocation.brand_name }}</td>
+                            <td>{{ allocation.process_name }}</td>
+                            <td>
+                                <form method="post" style="margin: 0;">
+                                    <input type="hidden" name="action" value="remove">
+                                    <input type="hidden" name="employee_id" value="{{ allocation.employee_id }}">
+                                    <input type="hidden" name="requirement_id" value="{{ allocation.requirement_id }}">
+                                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Remove allocation?')">
+                                        Remove
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">
+                                No allocations recorded.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

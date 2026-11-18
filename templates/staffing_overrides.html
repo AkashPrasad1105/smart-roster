@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Date-specific Staffing Overrides | Smart Roster</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('home') }}" class="brand-logo">
+                <span>⚡ SmartRoster</span>
+                <span class="brand-badge">Ops Suite</span>
+            </a>
+            <div class="nav-links">
+                <a href="{{ url_for('home') }}">Dashboard</a>
+                <a href="{{ url_for('roster.monthly_roster') }}">Roster</a>
+                <a href="{{ url_for('coverage.coverage_view') }}">Coverage</a>
+                <a href="{{ url_for('validation.validation_view') }}">Validation</a>
+                <a href="{{ url_for('simulator.change_simulator') }}">Change Simulator</a>
+                <a href="{{ url_for('employees') }}">Team</a>
+                <a href="{{ url_for('brands') }}" class="active">Brands</a>
+                <a href="{{ url_for('assignments.manage_assignments') }}">Allocations</a>
+                <a href="{{ url_for('availability.manage_availability') }}">Leave & Holidays</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="header">
+        <div class="container">
+            <p class="eyebrow">DYNAMIC SLA & DEMAND SURGE</p>
+            <h1>Date-Specific Staffing Overrides</h1>
+            <p>Configure peak staffing requirements for promotional sale days without altering baseline rules.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        {% if saved %}
+            <div class="alert alert-success">Staffing override saved successfully.</div>
+        {% endif %}
+        {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+
+        <div class="card">
+            <h2>Add or Update Date Override</h2>
+            <form method="post" class="management-form">
+                <input type="hidden" name="action" value="save">
+                <label>
+                    Brand & Process
+                    <select name="requirement_id" required>
+                        {% for requirement in requirements %}
+                            <option value="{{ requirement.id }}">
+                                {{ requirement.brand_name }} — {{ requirement.process_name }} (Default: {{ requirement.minimum_staff }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>
+                    Target Date
+                    <input type="date" name="work_date" required>
+                </label>
+                <label>
+                    Surge Minimum Staff
+                    <input type="number" name="minimum_staff" min="1" step="1" value="2" required>
+                </label>
+                <button type="submit" class="btn btn-primary">Save Override</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>Active Overrides</h2>
+            {% if overrides %}
+                <table class="employee-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Brand</th>
+                            <th>Process</th>
+                            <th>Override Minimum</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in overrides %}
+                        <tr>
+                            <td><strong>{{ item.work_date }}</strong></td>
+                            <td>{{ item.brand_name }}</td>
+                            <td>{{ item.process_name }}</td>
+                            <td><span class="badge badge-published">{{ item.minimum_staff }} staff required</span></td>
+                            <td>
+                                <form method="post" style="margin: 0;">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="requirement_id" value="{{ item.brand_process_id }}">
+                                    <input type="hidden" name="work_date" value="{{ item.work_date }}">
+                                    <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p style="color: var(--text-muted); font-size: 13px;">No date overrides recorded. Default staffing rules apply to all days.</p>
+            {% endif %}
+        </div>
+    </main>
+</body>
+</html>

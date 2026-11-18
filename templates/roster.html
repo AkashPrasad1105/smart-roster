@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly Roster ({{ month }}) | Smart Roster</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .strategy-badge {
+            font-size: 11px;
+            font-weight: bold;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: #e0f2fe;
+            color: #0369a1;
+            text-transform: uppercase;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('home') }}" class="brand-logo">
+                <span>⚡ SmartRoster</span>
+                <span class="brand-badge">Ops Suite</span>
+            </a>
+            <div class="nav-links">
+                <a href="{{ url_for('home') }}">Dashboard</a>
+                <a href="{{ url_for('roster.monthly_roster', month=month) }}" class="active">Roster</a>
+                <a href="{{ url_for('coverage.coverage_view', month=month) }}">Coverage</a>
+                <a href="{{ url_for('validation.validation_view', month=month) }}">Validation</a>
+                <a href="{{ url_for('simulator.change_simulator', month=month) }}">Change Simulator</a>
+                <a href="{{ url_for('employees') }}">Team</a>
+                <a href="{{ url_for('brands') }}">Brands</a>
+                <a href="{{ url_for('assignments.manage_assignments') }}">Allocations</a>
+                <a href="{{ url_for('availability.manage_availability') }}">Leave & Holidays</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="header">
+        <div class="container">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <p class="eyebrow">MONTHLY OPERATIONS SCHEDULE</p>
+                    <h1>Monthly Roster: {{ month }}</h1>
+                    <p>Cross-brand resource scheduling, operational calendars, and pod governance.</p>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    {% if roster %}
+                        <span class="badge {% if roster.status == 'PUBLISHED' %}badge-published{% else %}badge-draft{% endif %}">
+                            ● {{ roster.status }}
+                        </span>
+                        <a href="{{ url_for('roster.export_roster_csv', month=month) }}" class="btn btn-secondary">
+                            📥 Export CSV
+                        </a>
+                        <form method="post" style="display: inline;">
+                            <input type="hidden" name="month" value="{{ month }}">
+                            {% if roster.status == 'PUBLISHED' %}
+                                <input type="hidden" name="action" value="unpublish">
+                                <button type="submit" class="btn btn-secondary">Unpublish to Draft</button>
+                            {% else %}
+                                <input type="hidden" name="action" value="publish">
+                                <button type="submit" class="btn btn-primary">✓ Publish Roster</button>
+                            {% endif %}
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- CONTROLS & GENERATOR -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px;">
+                <form method="get" class="form-inline" style="margin: 0;">
+                    <input type="hidden" name="view" value="{{ view }}">
+                    <label>
+                        Selected Month
+                        <input type="month" name="month" value="{{ month }}" required>
+                    </label>
+                    <button type="submit" class="btn btn-secondary">Switch Month</button>
+                </form>
+
+                <!-- GENERATE ROSTER FORM WITH STRATEGY -->
+                <form method="post" class="form-inline" style="margin: 0; background: #f8fafc; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border);">
+                    <input type="hidden" name="action" value="generate">
+                    <input type="hidden" name="month" value="{{ month }}">
+                    <label>
+                        Scheduling Strategy
+                        <select name="strategy" required>
+                            <option value="CLIENT_PRIORITY" {% if not roster or roster.strategy == 'CLIENT_PRIORITY' %}selected{% endif %}>
+                                🚀 Smart Auto-Solver (Zero Gaps & 100% SLA Coverage)
+                            </option>
+                            <option value="AUTO_BACKUP" {% if roster and roster.strategy == 'AUTO_BACKUP' %}selected{% endif %}>
+                                👥 Auto-Backup (On-Shift Pod Peers)
+                            </option>
+                            <option value="BALANCED" {% if roster and roster.strategy == 'BALANCED' %}selected{% endif %}>
+                                ⚖️ Strict Weekly Offs (Manual Review Mode)
+                            </option>
+                        </select>
+                    </label>
+                    <button type="submit" class="btn btn-primary">⚡ Generate / Recalculate</button>
+                </form>
+            </div>
+        </div>
+
+        {% if error %}
+            <div class="alert alert-danger" role="alert">{{ error }}</div>
+        {% endif %}
+
+        {% if roster %}
+            <!-- SUMMARY CHIPS -->
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 16px 0;">
+                <span class="strategy-badge">Strategy: {{ roster.strategy }}</span>
+                <span><strong>{{ roster.employees | length }}</strong> Team Members</span> ·
+                <span><strong>{{ days | length }}</strong> Days Scheduled</span> ·
+                <span class="{% if roster.gaps | length > 0 %}error-message{% endif %}">
+                    <strong>{{ roster.gaps | length }}</strong> Coverage Gaps
+                </span>
+                {% if roster.warnings and roster.warnings | length > 0 %}
+                    · <span style="color: #92400e;"><strong>{{ roster.warnings | length }}</strong> Weekly-Off Comp Warnings</span>
+                {% endif %}
+            </div>
+
+            <!-- 5 STAKEHOLDER VIEW SWITCHER (Section 3.E) -->
+            <div class="view-tabs">
+                <a href="{{ url_for('roster.monthly_roster', month=month, view='company') }}"
+                   class="view-tab {% if view == 'company' %}active{% endif %}">
+                    🏢 Company-Wide View
+                </a>
+                <a href="{{ url_for('roster.monthly_roster', month=month, view='pod') }}"
+                   class="view-tab {% if view == 'pod' %}active{% endif %}">
+                    👥 Pod-Wise View
+                </a>
+                <a href="{{ url_for('roster.monthly_roster', month=month, view='brand') }}"
+                   class="view-tab {% if view == 'brand' %}active{% endif %}">
+                    🏷️ Brand-Wise View
+                </a>
+                <a href="{{ url_for('roster.monthly_roster', month=month, view='process') }}"
+                   class="view-tab {% if view == 'process' %}active{% endif %}">
+                    ⚙️ Process-Wise View
+                </a>
+                <a href="{{ url_for('roster.monthly_roster', month=month, view='employee') }}"
+                   class="view-tab {% if view == 'employee' %}active{% endif %}">
+                    👤 Individual Employee View
+                </a>
+            </div>
+
+            <!-- ================= VIEW 1: COMPANY-WIDE VIEW ================= -->
+            {% if view == 'company' %}
+                <div class="card" style="margin-top: 10px;">
+                    <form method="get" class="form-inline" style="margin-bottom: 15px;">
+                        <input type="hidden" name="month" value="{{ month }}">
+                        <input type="hidden" name="view" value="company">
+                        <label>
+                            Filter by Pod
+                            <select name="pod">
+                                <option value="">All Pods</option>
+                                {% for pod in pods %}
+                                    <option value="{{ pod }}" {% if selected_pod == pod %}selected{% endif %}>{{ pod }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label>
+                            Filter by Employee
+                            <select name="employee">
+                                <option value="">All Employees</option>
+                                {% for emp in all_employees %}
+                                    <option value="{{ emp.id }}" {% if selected_employee == (emp.id | string) %}selected{% endif %}>
+                                        {{ emp.name }} ({{ emp.pod_name }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <button type="submit" class="btn btn-secondary">Filter</button>
+                        <a href="{{ url_for('roster.monthly_roster', month=month, view='company') }}" class="btn btn-secondary">Clear</a>
+                    </form>
+
+                    <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">
+                        Hover over any work cell to inspect assigned brands and hours. Click <strong>Edit</strong> to manually lock or adjust assignments.
+                    </p>
+
+                    <div class="roster-scroll">
+                        <table class="roster-table">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    {% for day in days %}
+                                    <th>
+                                        {{ day.strftime('%d') }}<br>
+                                        <small>{{ day.strftime('%a') }}</small>
+                                    </th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for emp in visible_employees %}
+                                <tr>
+                                    <th>
+                                        <strong>{{ emp.name }}</strong>
+                                        {% if emp.is_pod_lead %}
+                                            <span class="badge badge-info" style="font-size: 9px; padding: 1px 4px;">LEAD</span>
+                                        {% endif %}
+                                        <br>
+                                        <small style="color: var(--text-muted);">{{ emp.pod_name }} · Cap: {{ emp.daily_capacity_hours }}h</small>
+                                    </th>
+                                    {% for day in days %}
+                                        {% set date_key = day.isoformat() %}
+                                        {% set emp_key = emp.id | string %}
+                                        {% set entry = roster.days[date_key].employees[emp_key] %}
+                                        <td class="status-{{ entry.status }}">
+                                            <span title="{% for job in entry.jobs %}{{ job.brand }}: {{ job.process }} ({{ job.hours }}h); {% endfor %}">
+                                                {{ status_labels[entry.status] }}
+                                                {% if entry.status == 'WORK' %}
+                                                    <br><small><strong>{{ entry.hours }}h</strong></small>
+                                                {% endif %}
+                                                {% if entry.get('weekly_off_overridden') %}
+                                                    <br><small style="color: #b45309; font-weight: bold;">[OT/Comp]</small>
+                                                {% endif %}
+                                                {% if entry.get('locked') %}
+                                                    <br><small style="color: #0369a1;">[Locked]</small>
+                                                {% endif %}
+                                                <br>
+                                                <a href="{{ url_for('roster_edit.edit_day', month=month, employee=emp.id, day=date_key) }}" style="font-size: 11px;">
+                                                    Edit
+                                                </a>
+                                            </span>
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            <!-- ================= VIEW 2: POD-WISE VIEW ================= -->
+            {% elif view == 'pod' %}
+                {% for pname, pinfo in pod_data.items() %}
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 14px;">
+                            <div>
+                                <h2 style="margin: 0;">{{ pname }}</h2>
+                                <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 13px;">
+                                    Pod Lead: <strong>{{ pinfo.lead_name }}</strong> · {{ pinfo.employees | length }} Team Members
+                                </p>
+                            </div>
+                            <div style="text-align: right;">
+                                <span class="badge badge-draft">Total Scheduled: {{ pinfo.total_hours }}h</span>
+                                <span class="badge badge-info">Avg/Member: {{ pinfo.avg_hours }}h</span>
+                            </div>
+                        </div>
+
+                        <div class="roster-scroll">
+                            <table class="roster-table">
+                                <thead>
+                                    <tr>
+                                        <th>Pod Member</th>
+                                        {% for day in days %}
+                                            <th>{{ day.strftime('%d') }}<br><small>{{ day.strftime('%a') }}</small></th>
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for emp in pinfo.employees %}
+                                    <tr>
+                                        <th>
+                                            {{ emp.name }}
+                                            {% if emp.is_pod_lead %}
+                                                <span class="badge badge-info" style="font-size: 9px; padding: 1px 4px;">LEAD</span>
+                                            {% endif %}
+                                        </th>
+                                        {% for day in days %}
+                                            {% set date_key = day.isoformat() %}
+                                            {% set emp_key = emp.id | string %}
+                                            {% set entry = roster.days[date_key].employees[emp_key] %}
+                                            <td class="status-{{ entry.status }}">
+                                                {{ status_labels[entry.status] }}
+                                                {% if entry.status == 'WORK' %}<br><strong>{{ entry.hours }}h</strong>{% endif %}
+                                            </td>
+                                        {% endfor %}
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                {% endfor %}
+
+            <!-- ================= VIEW 3: BRAND-WISE VIEW ================= -->
+            {% elif view == 'brand' %}
+                <div class="card">
+                    <h2>Brand Coverage & Service Continuity Matrix</h2>
+                    <p style="color: var(--text-muted); font-size: 13px;">
+                        Shows 30-day health for all 25 D2C client brands. 🟢 All processes covered | 🔴 Staffing gap detected | ⚪ Closed (Holidays/Sundays off)
+                    </p>
+
+                    <div class="roster-scroll">
+                        <table class="roster-table">
+                            <thead>
+                                <tr>
+                                    <th>Client Brand</th>
+                                    <th>Processes</th>
+                                    {% for day in days %}
+                                        <th>{{ day.strftime('%d') }}<br><small>{{ day.strftime('%a') }}</small></th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for b in brand_matrix %}
+                                <tr>
+                                    <th>
+                                        <strong>{{ b.name }}</strong>
+                                    </th>
+                                    <td style="text-align: left; font-size: 11px;">
+                                        {% for req in b.requirements %}
+                                            <div>{{ req.process_name }} (req: {{ req.minimum_staff }})</div>
+                                        {% endfor %}
+                                    </td>
+                                    {% for day in days %}
+                                        {% set date_key = day.isoformat() %}
+                                        {% set dstatus = b.days[date_key] %}
+                                        <td>
+                                            {% if dstatus.status == 'Covered' %}
+                                                <span class="coverage-Covered" title="{{ dstatus.details | join('; ') }}">✓ Covered</span>
+                                            {% elif dstatus.status == 'Gap' %}
+                                                <span class="coverage-Gap" title="{{ dstatus.details | join('; ') }}" style="cursor: pointer;"
+                                                      onclick="openBackupModal('{{ b.requirements[0].id }}', '{{ date_key }}', '{{ b.name }}')">
+                                                    ⚠️ GAP
+                                                </span>
+                                            {% else %}
+                                                <span class="coverage-Closed">Closed</span>
+                                            {% endif %}
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            <!-- ================= VIEW 4: PROCESS-WISE VIEW ================= -->
+            {% elif view == 'process' %}
+                <div class="card">
+                    <h2>Process Operations Schedule</h2>
+                    <p style="color: var(--text-muted); font-size: 13px;">
+                        Aggregated staffing levels across all brands for each core customer operation.
+                    </p>
+
+                    {% for proc in process_matrix %}
+                        <div style="margin-top: 20px;">
+                            <h3>{{ proc.name }} <span class="badge badge-info">{{ proc.brand_count }} Brands Active</span></h3>
+                            <div class="roster-scroll">
+                                <table class="roster-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Metric</th>
+                                            {% for day in days %}
+                                                <th>{{ day.strftime('%d') }}<br><small>{{ day.strftime('%a') }}</small></th>
+                                            {% endfor %}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <th>Required Staff</th>
+                                            {% for day in days %}
+                                                {% set pday = proc.days[day.isoformat()] %}
+                                                <td>{{ pday.required }}</td>
+                                            {% endfor %}
+                                        </tr>
+                                        <tr>
+                                            <th>Assigned Staff</th>
+                                            {% for day in days %}
+                                                {% set pday = proc.days[day.isoformat()] %}
+                                                <td class="{% if pday.status == 'Gap' %}status-LEAVE{% else %}status-WORK{% endif %}">
+                                                    {{ pday.assigned }}
+                                                </td>
+                                            {% endfor %}
+                                        </tr>
+                                        <tr>
+                                            <th>Coverage Status</th>
+                                            {% for day in days %}
+                                                {% set pday = proc.days[day.isoformat()] %}
+                                                <td>
+                                                    <span class="coverage-{{ pday.status }}">{{ pday.status }}</span>
+                                                </td>
+                                            {% endfor %}
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+            <!-- ================= VIEW 5: EMPLOYEE-WISE VIEW ================= -->
+            {% elif view == 'employee' %}
+                <div class="card">
+                    <form method="get" class="form-inline" style="margin-bottom: 20px;">
+                        <input type="hidden" name="month" value="{{ month }}">
+                        <input type="hidden" name="view" value="employee">
+                        <label>
+                            Select Employee
+                            <select name="employee" onchange="this.form.submit()">
+                                {% for emp in all_employees %}
+                                    <option value="{{ emp.id }}" {% if selected_employee == (emp.id | string) %}selected{% endif %}>
+                                        {{ emp.name }} ({{ emp.pod_name }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <button type="submit" class="btn btn-secondary">View Schedule</button>
+                    </form>
+
+                    {% if single_employee_schedule %}
+                        {% set emp = single_employee_schedule.employee %}
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px;">
+                            <div class="metric-card">
+                                <span class="metric-label">Employee</span>
+                                <span style="font-size: 18px; font-weight: bold; margin-top: 4px;">{{ emp.name }}</span>
+                                <span class="metric-hint">{{ emp.pod_name }} {% if emp.is_pod_lead %}· Pod Lead{% endif %}</span>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Total Work Days</span>
+                                <span class="metric-value">{{ single_employee_schedule.total_work_days }}</span>
+                                <span class="metric-hint">{{ single_employee_schedule.total_work_hours }}h total hours</span>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Rest / Off Days</span>
+                                <span class="metric-value">{{ single_employee_schedule.total_off_days }}</span>
+                                <span class="metric-hint">Standard weekly offs</span>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Leaves & Comp-Offs</span>
+                                <span class="metric-value">{{ single_employee_schedule.total_leaves }}</span>
+                                <span class="metric-hint">Approved absences</span>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Capacity Utilization</span>
+                                <span class="metric-value">{{ single_employee_schedule.utilization }}%</span>
+                                <span class="metric-hint">Daily cap: {{ emp.daily_capacity_hours }}h</span>
+                            </div>
+                        </div>
+
+                        <h3>Daily Work Agenda</h3>
+                        <table class="employee-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Day</th>
+                                    <th>Status</th>
+                                    <th>Scheduled Hours</th>
+                                    <th>Assigned Brand Responsibilities</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for d in single_employee_schedule.days %}
+                                <tr>
+                                    <td><strong>{{ d.date.strftime('%Y-%m-%d') }}</strong></td>
+                                    <td>{{ d.date.strftime('%A') }}</td>
+                                    <td>
+                                        <span class="badge status-{{ d.entry.status }}">
+                                            {{ status_labels[d.entry.status] }}
+                                        </span>
+                                        {% if d.entry.get('weekly_off_overridden') %}
+                                            <span class="badge badge-warning">Comp-Off Owed</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ d.entry.hours }} hours</td>
+                                    <td>
+                                        {% if d.entry.jobs %}
+                                            {% for job in d.entry.jobs %}
+                                                <div style="margin-bottom: 2px;">
+                                                    <strong>{{ job.brand }}</strong>: {{ job.process }} ({{ job.hours }}h)
+                                                    {% if job.get('is_backup') %}
+                                                        <span class="badge badge-info" style="font-size: 10px;">Backup</span>
+                                                    {% endif %}
+                                                </div>
+                                            {% endfor %}
+                                        {% else %}
+                                            <span style="color: var(--text-muted);">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('roster_edit.edit_day', month=month, employee=emp.id, day=d.date_key) }}" class="btn btn-secondary btn-sm">
+                                            Edit Day
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            <!-- COVERAGE GAPS SUMMARY TABLE (always visible on company view) -->
+            {% if view == 'company' and roster.gaps %}
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h2 style="color: #991b1b; margin: 0;">⚠️ Flagged Coverage Gaps ({{ roster.gaps | length }})</h2>
+                        <a href="{{ url_for('validation.validation_view', month=month) }}" class="btn btn-secondary">
+                            Run Full Validation
+                        </a>
+                    </div>
+                    <p style="font-size: 13px; color: var(--text-muted); margin-top: 6px;">
+                        Gaps arise when dedicated staff take weekly off or leave without an assigned backup. Click <strong>Find Pod Backup</strong> to resolve.
+                    </p>
+
+                    <table class="employee-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Brand</th>
+                                <th>Process</th>
+                                <th>Assigned / Required</th>
+                                <th>Reason</th>
+                                <th>Quick Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for gap in roster.gaps[:15] %}
+                            <tr>
+                                <td><strong>{{ gap.date }}</strong></td>
+                                <td>{{ gap.brand }}</td>
+                                <td>{{ gap.process }}</td>
+                                <td><span class="badge badge-critical">{{ gap.assigned }} / {{ gap.required }}</span></td>
+                                <td style="font-size: 12px; color: #475569;">
+                                    {% for r in gap.reasons %}
+                                        <div>• {{ r }}</div>
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-primary"
+                                            onclick="openBackupModal('{{ gap.requirement_id }}', '{{ gap.date }}', '{{ gap.brand }}')">
+                                        🔍 Find Backup
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% if roster.gaps | length > 15 %}
+                        <p style="text-align: center; margin-top: 10px; color: var(--text-muted);">
+                            Showing first 15 of {{ roster.gaps | length }} gaps. Check the Coverage or Validation tabs for the complete list.
+                        </p>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+        {% else %}
+            <!-- NO ROSTER GENERATED YET -->
+            <div class="card" style="text-align: center; padding: 40px 20px;">
+                <h2>No Saved Roster for {{ month }}</h2>
+                <p style="color: var(--text-muted); max-width: 500px; margin: 10px auto;">
+                    Select your preferred scheduling strategy above and click <strong>Generate / Recalculate</strong> to create an optimized schedule.
+                </p>
+                <form method="post" style="margin-top: 20px;">
+                    <input type="hidden" name="month" value="{{ month }}">
+                    <input type="hidden" name="strategy" value="CLIENT_PRIORITY">
+                    <button type="submit" class="btn btn-primary" style="font-size: 15px; padding: 12px 24px;">
+                        🚀 Generate Roster for {{ month }} (Client-Priority)
+                    </button>
+                </form>
+            </div>
+        {% endif %}
+    </main>
+
+    <!-- BACKUP RECOMMENDATION MODAL -->
+    <div id="backupModal" class="modal">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+                <h3 id="modalTitle" style="margin: 0;">Smart Backup Recommendations</h3>
+                <button type="button" onclick="closeBackupModal()" class="btn btn-secondary btn-sm">✕ Close</button>
+            </div>
+            <p id="modalSub" style="font-size: 13px; color: var(--text-muted); margin-top: 8px;"></p>
+            <div id="modalLoading" style="padding: 20px; text-align: center; color: var(--text-muted);">
+                Analyzing pod availability, capacity, and fair workload...
+            </div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <script>
+        function openBackupModal(reqId, workDate, brandName) {
+            document.getElementById('backupModal').classList.add('active');
+            document.getElementById('modalTitle').innerText = 'Smart Backup Finder: ' + brandName;
+            document.getElementById('modalSub').innerText = 'Date: ' + workDate;
+            document.getElementById('modalLoading').style.display = 'block';
+            document.getElementById('modalBody').innerHTML = '';
+
+            fetch('/api/backup-recommendations?requirement_id=' + reqId + '&work_date=' + workDate)
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('modalLoading').style.display = 'none';
+                    const container = document.getElementById('modalBody');
+
+                    if (!data.recommendations || data.recommendations.length === 0) {
+                        container.innerHTML = '<p style="color: #b91c1c;">No available backup candidates found with sufficient spare daily capacity.</p>';
+                        return;
+                    }
+
+                    data.recommendations.slice(0, 5).forEach(rec => {
+                        const card = document.createElement('div');
+                        card.className = 'rec-card';
+                        card.innerHTML = `
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <strong>${rec.name}</strong>
+                                    <span class="badge ${rec.is_same_pod ? 'badge-published' : 'badge-draft'}">${rec.pod_name}</span>
+                                    <span class="badge badge-info">Score: ${rec.score}%</span>
+                                </div>
+                                <div class="rec-reasons">
+                                    ${rec.reasons.map(r => `<span class="rec-tag">${r}</span>`).join('')}
+                                </div>
+                                <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
+                                    Scheduled today: ${rec.current_hours}h / ${rec.daily_capacity}h capacity (${rec.free_capacity}h free)
+                                </div>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-primary" onclick="assignBackup('${reqId}', '${workDate}', '${rec.employee_id}')">
+                                    Assign
+                                </button>
+                            </div>
+                        `;
+                        container.appendChild(card);
+                    });
+                })
+                .catch(err => {
+                    document.getElementById('modalLoading').style.display = 'none';
+                    document.getElementById('modalBody').innerHTML = '<p class="error-message">Error fetching recommendations.</p>';
+                });
+        }
+
+        function assignBackup(reqId, workDate, empId) {
+            const month = '{{ month }}';
+            fetch('/api/apply-backup', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    month: month,
+                    work_date: workDate,
+                    requirement_id: reqId,
+                    employee_id: empId
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Backup assigned successfully! Roster updated.');
+                    window.location.reload();
+                } else {
+                    alert('Failed: ' + data.error);
+                }
+            });
+        }
+
+        function closeBackupModal() {
+            document.getElementById('backupModal').classList.remove('active');
+        }
+    </script>
+</body>
+</html>

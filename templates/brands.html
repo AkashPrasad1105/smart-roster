@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brands & Operating Rules | Smart Roster</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('home') }}" class="brand-logo">
+                <span>⚡ SmartRoster</span>
+                <span class="brand-badge">Ops Suite</span>
+            </a>
+            <div class="nav-links">
+                <a href="{{ url_for('home') }}">Dashboard</a>
+                <a href="{{ url_for('roster.monthly_roster') }}">Roster</a>
+                <a href="{{ url_for('coverage.coverage_view') }}">Coverage</a>
+                <a href="{{ url_for('validation.validation_view') }}">Validation</a>
+                <a href="{{ url_for('simulator.change_simulator') }}">Change Simulator</a>
+                <a href="{{ url_for('employees') }}">Team</a>
+                <a href="{{ url_for('brands') }}" class="active">Brands</a>
+                <a href="{{ url_for('assignments.manage_assignments') }}">Allocations</a>
+                <a href="{{ url_for('availability.manage_availability') }}">Leave & Holidays</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="header">
+        <div class="container">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <p class="eyebrow">CLIENT PORTFOLIO & SLA GOVERNANCE</p>
+                    <h1>D2C Brands & Operational Rules</h1>
+                    <p>Client operating calendars, minimum staffing constraints, and process hours.</p>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <a href="{{ url_for('brand_settings.manage_brand_settings') }}" class="btn btn-secondary">
+                        ⚙️ Configure Brand Calendars
+                    </a>
+                    <a href="{{ url_for('staffing.manage_overrides') }}" class="btn btn-secondary">
+                        📈 Date-Specific Staffing Overrides
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        {% if success %}
+            <div class="alert alert-success">{{ success }}</div>
+        {% endif %}
+        {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+
+        <!-- DYNAMIC ADD BRAND FORM (Section 3.A & 6) -->
+        <div class="card">
+            <h2>➕ Register New D2C Brand</h2>
+            <p style="font-size: 13px; color: var(--text-muted);">
+                Define process operating calendars and staffing rules dynamically without changing application code.
+            </p>
+
+            <form method="post" class="management-form">
+                <label>
+                    Brand Name
+                    <input type="text" name="name" placeholder="e.g. Lumina Apparel" required>
+                </label>
+
+                <label>
+                    Customer Support (CS) Calendar
+                    <select name="cs_calendar">
+                        <option value="EVERY_DAY">365 Days (Sundays & Holidays Open)</option>
+                        <option value="HOLIDAYS_OFF">Holidays Off</option>
+                        <option value="SUNDAYS_HOLIDAYS_OFF">Sundays & Holidays Off</option>
+                    </select>
+                </label>
+
+                <label>
+                    CS Staff Needed
+                    <input type="number" name="cs_staff" min="1" value="1" style="width: 80px;" required>
+                </label>
+
+                <label>
+                    Abandoned Carts (ACC) Calendar
+                    <select name="acc_calendar">
+                        <option value="HOLIDAYS_OFF">Holidays Off</option>
+                        <option value="EVERY_DAY">365 Days Open</option>
+                        <option value="SUNDAYS_HOLIDAYS_OFF">Sundays & Holidays Off</option>
+                    </select>
+                </label>
+
+                <label>
+                    Initial Dedicated Employee
+                    <select name="assigned_employee_id">
+                        <option value="">No initial allocation</option>
+                        {% for emp in employees %}
+                            <option value="{{ emp.id }}">{{ emp.name }} ({{ emp.pod_name }})</option>
+                        {% endfor %}
+                    </select>
+                </label>
+
+                <label style="flex-direction: row; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <input type="checkbox" name="has_ndr" value="1">
+                    <span>Include NDR Process</span>
+                </label>
+
+                <button type="submit" class="btn btn-primary">Register Brand</button>
+            </form>
+        </div>
+
+        <!-- BRANDS DIRECTORY -->
+        <div class="card">
+            <h2>Client Requirements & Assigned Resources</h2>
+            <div style="overflow-x: auto;">
+                <table class="employee-table">
+                    <thead>
+                        <tr>
+                            <th>Brand</th>
+                            <th>Process</th>
+                            <th>Operating Calendar</th>
+                            <th>Min Staff</th>
+                            <th>Hours/Shift</th>
+                            <th>Eligible Employees</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in requirements %}
+                        <tr>
+                            <td><strong>{{ item.brand_name }}</strong></td>
+                            <td>{{ item.process_name }}</td>
+                            <td>
+                                {% if item.calendar == 'EVERY_DAY' %}
+                                    <span class="badge badge-published">365 Days (Daily)</span>
+                                {% elif item.calendar == 'HOLIDAYS_OFF' %}
+                                    <span class="badge badge-info">Holidays Off</span>
+                                {% else %}
+                                    <span class="badge badge-draft">Sundays & Holidays Off</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ item.minimum_staff }}</td>
+                            <td>{{ item.hours_per_employee }}h</td>
+                            <td>
+                                {% if item.employee_names %}
+                                    {{ item.employee_names }}
+                                {% else %}
+                                    <span style="color: #dc2626; font-weight: bold;">⚠️ No employee allocated</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('assignments.manage_assignments') }}" class="btn btn-secondary btn-sm">
+                                    Manage Allocation
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

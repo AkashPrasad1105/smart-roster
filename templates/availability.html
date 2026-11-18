@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leave & Public Holidays | Smart Roster</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('home') }}" class="brand-logo">
+                <span>⚡ SmartRoster</span>
+                <span class="brand-badge">Ops Suite</span>
+            </a>
+            <div class="nav-links">
+                <a href="{{ url_for('home') }}">Dashboard</a>
+                <a href="{{ url_for('roster.monthly_roster') }}">Roster</a>
+                <a href="{{ url_for('coverage.coverage_view') }}">Coverage</a>
+                <a href="{{ url_for('validation.validation_view') }}">Validation</a>
+                <a href="{{ url_for('simulator.change_simulator') }}">Change Simulator</a>
+                <a href="{{ url_for('employees') }}">Team</a>
+                <a href="{{ url_for('brands') }}">Brands</a>
+                <a href="{{ url_for('assignments.manage_assignments') }}">Allocations</a>
+                <a href="{{ url_for('availability.manage_availability') }}" class="active">Leave & Holidays</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="header">
+        <div class="container">
+            <p class="eyebrow">AVAILABILITY & CALENDAR PLANNING</p>
+            <h1>Approved Leaves & Public Holidays</h1>
+            <p>Manage planned leaves, compensatory offs, and public holidays.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 20px;">
+            <!-- PLANNED LEAVES -->
+            <div class="card">
+                <h2>Record Employee Absence</h2>
+                <form method="post" class="management-form">
+                    <input type="hidden" name="action" value="add_absence">
+
+                    <label>
+                        Employee
+                        <select name="employee_id" required>
+                            {% for employee in employees %}
+                            <option value="{{ employee.id }}">
+                                {{ employee.name }} ({{ employee.pod_name }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+
+                    <label>
+                        Absence Date
+                        <input type="date" name="absence_date" required>
+                    </label>
+
+                    <label>
+                        Absence Type
+                        <select name="absence_type" required>
+                            <option value="LEAVE">Planned Leave</option>
+                            <option value="COMP_OFF">Approved Comp-Off</option>
+                            <option value="UNAVAILABLE">Unavailable / Sick</option>
+                        </select>
+                    </label>
+
+                    <button type="submit" class="btn btn-primary">Record Absence</button>
+                </form>
+
+                <h3 style="margin-top: 24px;">Scheduled Absences ({{ absences | length }})</h3>
+                <div style="max-height: 300px; overflow-y: auto;">
+                    {% for absence in absences %}
+                    <div class="record-row">
+                        <span>
+                            <strong>{{ absence.employee_name }}</strong> ·
+                            {{ absence.absence_date }} ·
+                            <span class="badge badge-warning">{{ absence.absence_type | replace('_', ' ') }}</span>
+                        </span>
+                        <form method="post" style="margin: 0;">
+                            <input type="hidden" name="action" value="delete_absence">
+                            <input type="hidden" name="absence_id" value="{{ absence.id }}">
+                            <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                        </form>
+                    </div>
+                    {% else %}
+                        <p style="color: var(--text-muted); font-size: 13px;">No absences recorded yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- PUBLIC HOLIDAYS -->
+            <div class="card">
+                <h2>Record Public Holiday</h2>
+                <p style="font-size: 13px; color: var(--text-muted);">
+                    Holidays close only processes whose operating calendar is configured as <strong>Holidays Off</strong>.
+                </p>
+
+                <form method="post" class="management-form">
+                    <input type="hidden" name="action" value="add_holiday">
+
+                    <label>
+                        Holiday Name
+                        <input type="text" name="name" placeholder="e.g. Diwali" maxlength="100" required>
+                    </label>
+
+                    <label>
+                        Holiday Date
+                        <input type="date" name="holiday_date" required>
+                    </label>
+
+                    <button type="submit" class="btn btn-primary">Add Holiday</button>
+                </form>
+
+                <h3 style="margin-top: 24px;">Public Holidays ({{ holidays | length }})</h3>
+                <div style="max-height: 300px; overflow-y: auto;">
+                    {% for holiday in holidays %}
+                    <div class="record-row">
+                        <span>
+                            <strong>{{ holiday.name }}</strong> · {{ holiday.holiday_date }}
+                        </span>
+                        <form method="post" style="margin: 0;">
+                            <input type="hidden" name="action" value="delete_holiday">
+                            <input type="hidden" name="holiday_date" value="{{ holiday.holiday_date }}">
+                            <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                        </form>
+                    </div>
+                    {% else %}
+                        <p style="color: var(--text-muted); font-size: 13px;">No holidays recorded yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

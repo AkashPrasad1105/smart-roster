@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Employee Shift Settings | Smart Roster</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('home') }}" class="brand-logo">
+                <span>⚡ SmartRoster</span>
+                <span class="brand-badge">Ops Suite</span>
+            </a>
+            <div class="nav-links">
+                <a href="{{ url_for('home') }}">Dashboard</a>
+                <a href="{{ url_for('roster.monthly_roster') }}">Roster</a>
+                <a href="{{ url_for('coverage.coverage_view') }}">Coverage</a>
+                <a href="{{ url_for('validation.validation_view') }}">Validation</a>
+                <a href="{{ url_for('simulator.change_simulator') }}">Change Simulator</a>
+                <a href="{{ url_for('employees') }}" class="active">Team</a>
+                <a href="{{ url_for('brands') }}">Brands</a>
+                <a href="{{ url_for('assignments.manage_assignments') }}">Allocations</a>
+                <a href="{{ url_for('availability.manage_availability') }}">Leave & Holidays</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="header">
+        <div class="container">
+            <p class="eyebrow">WORKFORCE CAPACITY CONFIGURATION</p>
+            <h1>Employee Working Rules</h1>
+            <p>Set weekly offs and maximum daily working capacity per team member.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        {% if saved %}
+            <div class="alert alert-success">Employee settings saved successfully.</div>
+        {% endif %}
+        {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-top: 20px;">
+            {% for employee in employees %}
+                <div class="card" style="margin-top: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0;">{{ employee.name }}</h3>
+                        <span class="badge badge-draft">{{ employee.pod_name }}</span>
+                    </div>
+
+                    <form method="post" style="margin-top: 14px; display: grid; gap: 10px;">
+                        <input type="hidden" name="employee_id" value="{{ employee.id }}">
+
+                        <label>
+                            Weekly Off Day
+                            <select name="weekly_off" required>
+                                {% for weekday in weekdays %}
+                                    <option value="{{ loop.index0 }}" {% if employee.weekly_off == loop.index0 %}selected{% endif %}>
+                                        {{ weekday }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </label>
+
+                        <label>
+                            Daily Capacity (Hours)
+                            <input type="number" name="capacity" min="1" max="24" step="1" value="{{ employee.daily_capacity_hours }}" required>
+                        </label>
+
+                        <button type="submit" class="btn btn-primary btn-sm" style="margin-top: 6px;">Save Rule</button>
+                    </form>
+                </div>
+            {% endfor %}
+        </div>
+    </main>
+</body>
+</html>

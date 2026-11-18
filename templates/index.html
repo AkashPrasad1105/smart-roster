@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Roster Management System | DataStraw Assessment</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('home') }}" class="brand-logo">
+                <span>⚡ SmartRoster</span>
+                <span class="brand-badge">Ops Suite</span>
+            </a>
+            <div class="nav-links">
+                <a href="{{ url_for('home') }}" class="active">Dashboard</a>
+                <a href="{{ url_for('roster.monthly_roster') }}">Roster</a>
+                <a href="{{ url_for('coverage.coverage_view') }}">Coverage</a>
+                <a href="{{ url_for('validation.validation_view') }}">Validation</a>
+                <a href="{{ url_for('simulator.change_simulator') }}">Change Simulator</a>
+                <a href="{{ url_for('employees') }}">Team</a>
+                <a href="{{ url_for('brands') }}">Brands</a>
+                <a href="{{ url_for('assignments.manage_assignments') }}">Allocations</a>
+                <a href="{{ url_for('availability.manage_availability') }}">Leave & Holidays</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="header">
+        <div class="container">
+            <p class="eyebrow">DATASTRAW TECH INTERNSHIP ASSESSMENT</p>
+            <h1>Smart Roster Management System</h1>
+            <p>Constraint-driven scheduling, dynamic multi-resource allocation, and real-time gap resolution across D2C brands.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- METRICS OVERVIEW -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <span class="metric-label">Team Size</span>
+                <span class="metric-value">{{ total_employees }}</span>
+                <span class="metric-hint">Across {{ total_pods }} Operational Pods</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-label">Managed Brands</span>
+                <span class="metric-value">{{ unique_brands }}</span>
+                <span class="metric-hint">80% Single-Resource / 20% Multi-Resource</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-label">Operational Processes</span>
+                <span class="metric-value">{{ unique_processes }}</span>
+                <span class="metric-hint">CS (365d), ACC, NDR</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-label">Operational Pods</span>
+                <span class="metric-value">{{ total_pods }}</span>
+                <span class="metric-hint">Managed by dedicated Pod Leads</span>
+            </div>
+        </div>
+
+        <!-- CORE ACTIONS -->
+        <div class="card">
+            <h2>Operations Management Workspace</h2>
+            <p>Access live roster generation, constraint validation, scenario change testing, and operational configuration.</p>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px;">
+                <a href="{{ url_for('roster.monthly_roster') }}" class="btn btn-primary">📅 Open Monthly Roster</a>
+                <a href="{{ url_for('coverage.coverage_view') }}" class="btn btn-secondary">📊 Client Coverage Matrix</a>
+                <a href="{{ url_for('validation.validation_view') }}" class="btn btn-secondary">🛡️ Run Conflict Validation</a>
+                <a href="{{ url_for('simulator.change_simulator') }}" class="btn btn-secondary">⚡ Test Change Simulator (Section 3.F)</a>
+                <a href="{{ url_for('brand_settings.manage_brand_settings') }}" class="btn btn-secondary">⚙️ Operating Calendars</a>
+                <a href="{{ url_for('staffing.manage_overrides') }}" class="btn btn-secondary">📈 Staffing Overrides</a>
+            </div>
+        </div>
+
+        <!-- ASSESSMENT PROBLEM BREAKDOWN -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-top: 10px;">
+            <div class="card">
+                <h3>🧩 The Core Scheduling Challenge</h3>
+                <p>
+                    <strong>80% of brands</strong> rely on a single dedicated employee handling all processes (Customer Support & Abandoned Carts).
+                    When that employee takes their mandatory weekly off or planned leave, the brand faces immediate operational downtime.
+                </p>
+                <p>
+                    SmartRoster solves this with <strong>smart pod-level cross-coverage</strong>, multi-strategy generation (Balanced vs. Client-Priority), and a live conflict validation engine.
+                </p>
+            </div>
+
+            <div class="card">
+                <h3>🎯 Three Scheduling Strategies</h3>
+                <ul style="padding-left: 20px; line-height: 1.8;">
+                    <li><strong>Balanced (Strict Weekly Off)</strong>: Strictly preserves employee weekly offs; flags coverage gaps for single-resource brands and recommends pod backups.</li>
+                    <li><strong>Auto-Backup (Pod-Assisted)</strong>: Automatically searches and schedules available same-pod peers to cover gaps.</li>
+                    <li><strong>Client-Priority (365-Day Operations)</strong>: Prioritizes mandatory client SLA over preferred weekly offs; flags comp-off warnings for manager review.</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>👥 Pod Governance Structure</h3>
+                <div style="margin-top: 10px;">
+                    {% for pod in pods %}
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                        <span><strong>{{ pod.name }}</strong> (Lead: {{ pod.lead_name }})</span>
+                        <span class="badge badge-draft">{{ pod.member_count }} Members</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

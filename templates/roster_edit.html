@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Roster Day | Smart Roster</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{{ url_for('home') }}" class="brand-logo">
+                <span>⚡ SmartRoster</span>
+                <span class="brand-badge">Ops Suite</span>
+            </a>
+            <div class="nav-links">
+                <a href="{{ url_for('home') }}">Dashboard</a>
+                <a href="{{ url_for('roster.monthly_roster', month=month) }}" class="active">Roster</a>
+                <a href="{{ url_for('coverage.coverage_view', month=month) }}">Coverage</a>
+                <a href="{{ url_for('validation.validation_view', month=month) }}">Validation</a>
+                <a href="{{ url_for('simulator.change_simulator', month=month) }}">Change Simulator</a>
+                <a href="{{ url_for('employees') }}">Team</a>
+                <a href="{{ url_for('brands') }}">Brands</a>
+                <a href="{{ url_for('assignments.manage_assignments') }}">Allocations</a>
+                <a href="{{ url_for('availability.manage_availability') }}">Leave & Holidays</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="header">
+        <div class="container">
+            <p class="eyebrow">HUMAN-IN-THE-LOOP ADJUSTMENT</p>
+            <h1>Manual Day Override</h1>
+            <p>Manually adjust shifts, lock assignments, and re-validate against operational constraints.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+
+        {% if employee and entry %}
+            <div class="card" style="max-width: 600px; margin: 20px auto;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+                    <div>
+                        <h2 style="margin: 0;">{{ employee.name }}</h2>
+                        <span style="color: var(--text-muted); font-size: 13px;">{{ employee.pod_name }} · Date: <strong>{{ day_text }}</strong></span>
+                    </div>
+                    <span class="badge badge-draft">Capacity: {{ employee.daily_capacity_hours }}h</span>
+                </div>
+
+                <form method="post" style="margin-top: 16px;">
+                    <input type="hidden" name="month" value="{{ month }}">
+                    <input type="hidden" name="employee" value="{{ employee_key }}">
+                    <input type="hidden" name="day" value="{{ day_text }}">
+
+                    <label style="margin-bottom: 14px;">
+                        Day Working Status
+                        <select id="status" name="status" required>
+                            {% for status in statuses %}
+                            <option value="{{ status }}" {% if entry.status == status %}selected{% endif %}>
+                                {{ status | replace('_', ' ') }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+
+                    <h3 style="margin-top: 18px; margin-bottom: 6px;">Select Responsibilities</h3>
+                    <p style="font-size: 12px; color: var(--text-muted); margin-top: 0;">
+                        For 'Work', select at least one responsibility. For other statuses (Leave, Off), leave unselected.
+                    </p>
+
+                    <div style="display: grid; gap: 8px; margin: 12px 0;">
+                        {% for item in choices %}
+                        <label class="job-option" style="display: flex; align-items: center; gap: 8px; padding: 10px; background: #f8fafc; border-radius: 6px; cursor: pointer;">
+                            <input type="checkbox" name="jobs" value="{{ item.id }}" {% if item.id in selected_jobs %}checked{% endif %}>
+                            <span><strong>{{ item.brand_name }}</strong> — {{ item.process_name }} ({{ item.hours_per_employee }}h)</span>
+                        </label>
+                        {% else %}
+                            <p style="color: var(--text-muted); font-size: 13px;">No open responsibilities available for this day.</p>
+                        {% endfor %}
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px;">
+                        <a href="{{ url_for('roster.monthly_roster', month=month) }}" class="btn btn-secondary">
+                            Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            Save Manual Override & Validate
+                        </button>
+                    </div>
+                </form>
+            </div>
+        {% endif %}
+    </main>
+</body>
+</html>
